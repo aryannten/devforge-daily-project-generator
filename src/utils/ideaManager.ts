@@ -18,11 +18,45 @@ export class IdeaManager {
   private algorithmicGenerator: AlgorithmicGenerator;
   private fallbackMechanism: FallbackMechanism;
   private storageManager: StorageManager;
+  private readonly SESSION_HISTORY_KEY = 'devforge_session_history';
+  private readonly MAX_HISTORY_SIZE = 50;
 
   constructor() {
     this.algorithmicGenerator = new AlgorithmicGenerator();
     this.fallbackMechanism = new FallbackMechanism();
     this.storageManager = new StorageManager();
+    
+    // Load session history from localStorage
+    this.loadSessionHistory();
+  }
+
+  /**
+   * Load session history from localStorage
+   */
+  private loadSessionHistory(): void {
+    try {
+      const stored = localStorage.getItem(this.SESSION_HISTORY_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          this.sessionHistory = parsed;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load session history:', error);
+      this.sessionHistory = [];
+    }
+  }
+
+  /**
+   * Save session history to localStorage
+   */
+  private saveSessionHistory(): void {
+    try {
+      localStorage.setItem(this.SESSION_HISTORY_KEY, JSON.stringify(this.sessionHistory));
+    } catch (error) {
+      console.warn('Failed to save session history:', error);
+    }
   }
 
   /**
@@ -73,9 +107,12 @@ export class IdeaManager {
     this.sessionHistory.push(attributeHash);
 
     // Keep session history limited to last 50 ideas
-    if (this.sessionHistory.length > 50) {
+    if (this.sessionHistory.length > this.MAX_HISTORY_SIZE) {
       this.sessionHistory.shift();
     }
+
+    // Persist session history to localStorage
+    this.saveSessionHistory();
 
     return result;
   }
@@ -116,6 +153,14 @@ export class IdeaManager {
       const discardedHash = this.generateAttributeHash(this.currentIdea);
       // Add to session history to avoid similar ideas
       this.sessionHistory.push(`discarded_${discardedHash}`);
+      
+      // Keep session history limited
+      if (this.sessionHistory.length > this.MAX_HISTORY_SIZE) {
+        this.sessionHistory.shift();
+      }
+      
+      // Persist to localStorage
+      this.saveSessionHistory();
     }
 
     // Generate new idea
@@ -177,6 +222,7 @@ export class IdeaManager {
    */
   clearSessionHistory(): void {
     this.sessionHistory = [];
+    this.saveSessionHistory();
   }
 
   /**
